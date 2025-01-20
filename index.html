@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>세 자리 나누기 몇 십</title>
+    <!-- MathJax 라이브러리 로드 -->
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" defer></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+            margin: 0;
+            padding: 0;
+            text-align: center;
+        }
+        #start-screen, #game-container, #game-over {
+            display: none;
+            padding: 50px;
+        }
+        #start-screen.active, #game-container.active, #game-over.active {
+            display: block;
+        }
+        h1 {
+            color: #343a40;
+            margin-bottom: 20px;
+        }
+        .difficulty-button {
+            display: inline-block;
+            margin: 10px;
+            padding: 15px 30px;
+            font-size: 18px;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .difficulty-button:hover {
+            background-color: #0056b3;
+        }
+        #energy-bar {
+            width: 80%;
+            height: 25px;
+            background-color: #dee2e6;
+            border-radius: 12.5px;
+            margin: 20px auto;
+            overflow: hidden;
+        }
+        #energy {
+            height: 100%;
+            background-color: #28a745;
+            width: 100%;
+            transition: width 0.1s linear;
+        }
+        #stats {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 20px;
+            font-size: 18px;
+            color: #495057;
+        }
+        #question {
+            font-size: 24px;
+            margin-bottom: 20px;
+            color: #343a40;
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        #input-answer {
+            margin-bottom: 20px;
+        }
+        #input-answer input {
+            font-size: 18px;
+            padding: 5px 10px;
+            width: 100px;
+            margin: 0 10px;
+            text-align: center;
+        }
+        #submit-button {
+            display: none;
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 18px;
+            color: #fff;
+            background-color: #6c757d;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #submit-button:hover {
+            background-color: #5a6268;
+        }
+        .correct {
+            background-color: #28a745 !important;
+        }
+        .wrong {
+            background-color: #dc3545 !important;
+        }
+        #game-over {
+            color: #dc3545;
+        }
+        #game-over button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            color: #fff;
+            background-color: #007bff;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        #game-over button:hover {
+            background-color: #0056b3;
+        }
+        /* Popup 스타일 */
+        #popup {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            display: none;
+            z-index: 1000;
+        }
+        #popup button {
+            margin-top: 20px;
+            padding: 8px 16px;
+            font-size: 14px;
+            color: #fff;
+            background-color: #ffc107;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        #popup button:hover {
+            background-color: #e0a800;
+        }
+        /* 서버 전송 결과 표시 영역 */
+        #response {
+            margin-top: 20px;
+            white-space: pre-wrap; /* JSON 형식 보기 좋게 */
+            text-align: left;
+            display: inline-block;
+            max-width: 80%;
+            color: #212529;
+        }
+    </style>
+</head>
+<body>
+    <!-- 시작 화면 -->
+    <div id="start-screen" class="active">
+        <h1>세 자리 나누기 몇 십</h1>
+        <p>이름을 입력하세요:</p>
+        <input type="text" id="player-name" placeholder="이름을 입력하세요" style="font-size:16px; padding:8px;">
+        <p style="margin-top:30px;">난이도를 선택하세요:</p>
+        <button class="difficulty-button" onclick="startGame('최상')">최상 (20초 시작)</button>
+        <button class="difficulty-button" onclick="startGame('상')">상 (30초 시작)</button>
+        <button class="difficulty-button" onclick="startGame('중')">중 (40초 시작)</button>
+        <button class="difficulty-button" onclick="startGame('하')">하 (시간 제한 없음)</button>
+    </div>
+
+    <!-- 게임 화면 -->
+    <div id="game-container">
+        <div id="stats">
+            <div id="score-display">점수: 0</div>
+            <div id="lives-display">남은 기회: 3</div>
+            <div id="time-display">전체 게임 시간: 0초</div>
+        </div>
+        <div id="energy-bar">
+            <div id="energy"></div>
+        </div>
+        <div id="question"></div>
+        <div id="input-answer" style="display:none;">
+            <span>몫:</span><input type="number" id="quotient-input">
+            <span>나머지:</span><input type="number" id="remainder-input">
+        </div>
+        <button id="submit-button" onclick="submitInputAnswer()">제출하기</button>
+    </div>
+
+    <!-- 게임 종료 화면 -->
+    <div id="game-over">
+        <h1>게임 종료!</h1>
+        <p id="final-score"></p>
+        <!-- 점수 전송 버튼 및 응답 결과 표시 -->
+        <button onclick="sendScore()">점수 전송</button>
+        <button onclick="restartGame()">다시 시작하기</button>
+        <div id="response"></div>
+    </div>
+
+    <!-- 팝업 -->
+    <div id="popup">
+        <p id="popup-message"></p>
+        <button onclick="closePopup()">닫기</button>
+    </div>
+
+    <script>
+        let score = 0;
+        let lives = 3;
+        let totalGameTime = 0;
+        let difficulty = '';
+        let timePerQuestion = 0;
+        let pointsPerQuestion = 0;
+        let energyWidth = 100;
+        let energyInterval = null;
+        let totalTimeInterval = null;
+        let shuffledQuestions = [];
+        let currentQuestion = {};
+        let rewardGiven = false;
+
+        // 플레이어 이름을 저장할 전역 변수
+        let playerName = '';
+
+        // 60문제 출제
+        // 패턴: divisor in {10,20,30,40,50,60,70,80,90}
+        // 각 divisor별 세자리수 나누기 문제
+        // quotient 항상 11, remainder 0~6(또는0~3)
+        // 총 60문제
+        const divisionQuestions = [
+            // divisor=10, dividend=110~116
+            {dividend:110, divisor:10, q:11, r:0},
+            {dividend:111, divisor:10, q:11, r:1},
+            {dividend:112, divisor:10, q:11, r:2},
+            {dividend:113, divisor:10, q:11, r:3},
+            {dividend:114, divisor:10, q:11, r:4},
+            {dividend:115, divisor:10, q:11, r:5},
+            {dividend:116, divisor:10, q:11, r:6},
+
+            // divisor=20, dividend=220~226
+            {dividend:220, divisor:20, q:11, r:0},
+            {dividend:221, divisor:20, q:11, r:1},
+            {dividend:222, divisor:20, q:11, r:2},
+            {dividend:223, divisor:20, q:11, r:3},
+            {dividend:224, divisor:20, q:11, r:4},
+            {dividend:225, divisor:20, q:11, r:5},
+            {dividend:226, divisor:20, q:11, r:6},
+
+            // divisor=30, dividend=330~336
+            {dividend:330, divisor:30, q:11, r:0},
+            {dividend:331, divisor:30, q:11, r:1},
+            {dividend:332, divisor:30, q:11, r:2},
+            {dividend:333, divisor:30, q:11, r:3},
+            {dividend:334, divisor:30, q:11, r:4},
+            {dividend:335, divisor:30, q:11, r:5},
+            {dividend:336, divisor:30, q:11, r:6},
+
+            // divisor=40, dividend=440~446
+            {dividend:440, divisor:40, q:11, r:0},
+            {dividend:441, divisor:40, q:11, r:1},
+            {dividend:442, divisor:40, q:11, r:2},
+            {dividend:443, divisor:40, q:11, r:3},
+            {dividend:444, divisor:40, q:11, r:4},
+            {dividend:445, divisor:40, q:11, r:5},
+            {dividend:446, divisor:40, q:11, r:6},
+
+            // divisor=50, dividend=550~556
+            {dividend:550, divisor:50, q:11, r:0},
+            {dividend:551, divisor:50, q:11, r:1},
+            {dividend:552, divisor:50, q:11, r:2},
+            {dividend:553, divisor:50, q:11, r:3},
+            {dividend:554, divisor:50, q:11, r:4},
+            {dividend:555, divisor:50, q:11, r:5},
+            {dividend:556, divisor:50, q:11, r:6},
+
+            // divisor=60, dividend=660~666
+            {dividend:660, divisor:60, q:11, r:0},
+            {dividend:661, divisor:60, q:11, r:1},
+            {dividend:662, divisor:60, q:11, r:2},
+            {dividend:663, divisor:60, q:11, r:3},
+            {dividend:664, divisor:60, q:11, r:4},
+            {dividend:665, divisor:60, q:11, r:5},
+            {dividend:666, divisor:60, q:11, r:6},
+
+            // divisor=70, dividend=770~776
+            {dividend:770, divisor:70, q:11, r:0},
+            {dividend:771, divisor:70, q:11, r:1},
+            {dividend:772, divisor:70, q:11, r:2},
+            {dividend:773, divisor:70, q:11, r:3},
+            {dividend:774, divisor:70, q:11, r:4},
+            {dividend:775, divisor:70, q:11, r:5},
+            {dividend:776, divisor:70, q:11, r:6},
+
+            // divisor=80, dividend=880~886
+            {dividend:880, divisor:80, q:11, r:0},
+            {dividend:881, divisor:80, q:11, r:1},
+            {dividend:882, divisor:80, q:11, r:2},
+            {dividend:883, divisor:80, q:11, r:3},
+            {dividend:884, divisor:80, q:11, r:4},
+            {dividend:885, divisor:80, q:11, r:5},
+            {dividend:886, divisor:80, q:11, r:6},
+
+            // divisor=90, dividend=990~993
+            {dividend:990, divisor:90, q:11, r:0},
+            {dividend:991, divisor:90, q:11, r:1},
+            {dividend:992, divisor:90, q:11, r:2},
+            {dividend:993, divisor:90, q:11, r:3},
+        ];
+
+        const questions = [];
+
+        // 주관식 60문제(type:"input")로 구성
+        divisionQuestions.forEach(dq => {
+            questions.push({
+                type: "input",
+                dividend: dq.dividend,
+                divisor: dq.divisor,
+                quotient: dq.q,
+                remainder: dq.r
+            });
+        });
+
+        // 보상 확률 설정
+        const rewards = [
+            { chance: 1/10000, message: "축하합니다! 5000원 상품권을 받으셨습니다!" },
+            { chance: 1/1000, message: "축하합니다! 3000원 상품권을 받으셨습니다!" },
+            { chance: 1/500, message: "축하합니다! 1회 면제권을 받으셨습니다!" }
+        ];
+
+        // ---------------------------
+        // (4) 데이터 서버 전송 함수
+        // ---------------------------
+        function saveData(game, name, score, elapsedTime) {
+            const FUNCTION_URL = "https://us-central1-record-f420d.cloudfunctions.net/report";
+
+            const requestData = {
+                game,
+                name,
+                score: parseInt(score, 10),
+                elapsedTime: parseInt(elapsedTime, 10)
+            };
+
+            try {
+                // fetch를 사용해 POST 요청
+                const response = fetch(FUNCTION_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(requestData)
+                });
+
+                const responseData = response.json();
+
+                if (response.ok) {
+                    document.getElementById('response').innerText = 
+                        `성공: ${JSON.stringify(responseData, null, 2)}`;
+                } else {
+                    document.getElementById('response').innerText = 
+                        `오류: ${JSON.stringify(responseData, null, 2)}`;
+                }
+            } catch (error) {
+                console.error('요청 실패:', error);
+                document.getElementById('response').innerText = 
+                    `네트워크 오류: ${error.message}`;
+            }
+        }
+
+        // 난이도 선택 시 게임 시작
+        function startGame(selectedDifficulty) {
+            // (2) 플레이어 이름 가져오기
+            playerName = document.getElementById('player-name').value.trim();
+            if(!playerName) {
+                alert("이름을 입력해 주세요.");
+                return;
+            }
+
+            difficulty = selectedDifficulty;
+            document.getElementById('start-screen').classList.remove('active');
+            document.getElementById('game-container').classList.add('active');
+
+            switch(difficulty) {
+                case '최상':
+                    timePerQuestion = 20;
+                    pointsPerQuestion = 20;
+                    break;
+                case '상':
+                    timePerQuestion = 30;
+                    pointsPerQuestion = 15;
+                    break;
+                case '중':
+                    timePerQuestion = 40;
+                    pointsPerQuestion = 13;
+                    break;
+                case '하':
+                    timePerQuestion = 0;
+                    pointsPerQuestion = 10;
+                    break;
+            }
+
+            if(difficulty !== '하') {
+                document.getElementById('energy-bar').style.display = 'block';
+                energyWidth = 100;
+                updateEnergyBar();
+                startEnergyBar();
+            } else {
+                document.getElementById('energy-bar').style.display = 'none';
+            }
+
+            startGameTimer();
+
+            // 문제 배열을 셔플
+            shuffledQuestions = shuffleArray([...questions]);
+
+            score = 0;
+            lives = 3;
+            totalGameTime = 0;
+            updateStats();
+
+            loadNextQuestion();
+        }
+
+        function startGameTimer() {
+            totalTimeInterval = setInterval(function() {
+                totalGameTime += 1;
+                document.getElementById('time-display').innerText = '전체 게임 시간: ' + totalGameTime + '초';
+            }, 1000);
+        }
+
+        function startEnergyBar() {
+            clearInterval(energyInterval);
+            energyInterval = setInterval(function() {
+                if(timePerQuestion > 0) {
+                    energyWidth -= (100 / (timePerQuestion * 10));
+                    if(energyWidth <= 0) {
+                        energyWidth = 0;
+                        lives -= 1;
+                        if(lives <= 0) {
+                            showCorrectAnswer();
+                            endGame();
+                        } else {
+                            document.getElementById('lives-display').innerText = '남은 기회: ' + lives;
+                            showCorrectAnswer();
+                            setTimeout(loadNextQuestion, 1000);
+                        }
+                    }
+                    updateEnergyBar();
+                }
+            }, 100);
+        }
+
+        function updateEnergyBar() {
+            document.getElementById('energy').style.width = energyWidth + '%';
+            if(energyWidth > 60) {
+                document.getElementById('energy').style.backgroundColor = '#28a745';
+            } else if(energyWidth > 30) {
+                document.getElementById('energy').style.backgroundColor = '#ffc107';
+            } else {
+                document.getElementById('energy').style.backgroundColor = '#dc3545';
+            }
+        }
+
+        let currentQuestionIndex = -1;
+        function loadNextQuestion() {
+            if(shuffledQuestions.length === 0) {
+                shuffledQuestions = shuffleArray([...questions]);
+            }
+
+            currentQuestionIndex = Math.floor(Math.random() * shuffledQuestions.length);
+            currentQuestion = shuffledQuestions[currentQuestionIndex];
+            shuffledQuestions.splice(currentQuestionIndex,1);
+
+            document.getElementById('question').innerHTML = '';
+
+            // 주관식 입력 초기화
+            document.getElementById('input-answer').style.display = 'none';
+            document.getElementById('submit-button').style.display = 'none';
+
+            if(currentQuestion.type === "input") {
+                // 예: 435 ÷ 30
+                let qText = currentQuestion.dividend + " ÷ " + currentQuestion.divisor + " = ?";
+                document.getElementById('question').innerHTML = qText;
+                document.getElementById('input-answer').style.display = 'block';
+                document.getElementById('submit-button').style.display = 'inline-block';
+                document.getElementById('quotient-input').value = '';
+                document.getElementById('remainder-input').value = '';
+            }
+
+            if(difficulty !== '하') {
+                energyWidth = 100;
+                updateEnergyBar();
+                clearInterval(energyInterval);
+                startEnergyBar();
+            }
+
+            MathJax.typesetPromise();
+        }
+
+        function submitInputAnswer() {
+            let userQuotient = parseInt(document.getElementById('quotient-input').value);
+            let userRemainder = parseInt(document.getElementById('remainder-input').value);
+
+            let correctQ = currentQuestion.quotient;
+            let correctR = currentQuestion.remainder;
+
+            if(userQuotient === correctQ && userRemainder === correctR) {
+                // 정답
+                score += pointsPerQuestion;
+                document.getElementById('score-display').innerText = '점수: ' + score;
+                checkReward();
+                setTimeout(loadNextQuestion, 1000);
+            } else {
+                // 오답
+                lives -= 1;
+                if(lives <= 0) {
+                    endGame();
+                } else {
+                    document.getElementById('lives-display').innerText = '남은 기회: ' + lives;
+                    setTimeout(loadNextQuestion, 1000);
+                }
+            }
+            updateStats();
+        }
+
+        function showCorrectAnswer() {
+            // 오답 처리 시 정답을 보여주려면 여기에 구현
+            // 현재는 오답 시 자동으로 다음 문제로 넘어감
+        }
+
+        function endGame() {
+            clearInterval(energyInterval);
+            clearInterval(totalTimeInterval);
+            document.getElementById('game-container').classList.remove('active');
+            document.getElementById('game-over').classList.add('active');
+            document.getElementById('final-score').innerText = '최종 점수: ' + score;
+        }
+
+        function restartGame() {
+            document.getElementById('game-over').classList.remove('active');
+            document.getElementById('start-screen').classList.add('active');
+        }
+
+        function updateStats() {
+            document.getElementById('score-display').innerText = '점수: ' + score;
+            document.getElementById('lives-display').innerText = '남은 기회: ' + lives;
+            document.getElementById('time-display').innerText = '전체 게임 시간: ' + totalGameTime + '초';
+        }
+
+        function shuffleArray(array) {
+            for(let i = array.length - 1; i > 0; i--){
+                const j = Math.floor(Math.random() * (i + 1));
+                [array[i], array[j]] = [array[j], array[i]];
+            }
+            return array;
+        }
+
+        function checkReward() {
+            if(rewardGiven) return;
+            let rand = Math.random();
+            let cumulative = 0;
+            for(let reward of rewards) {
+                cumulative += reward.chance;
+                if(rand < cumulative) {
+                    showPopup(reward.message);
+                    rewardGiven = true;
+                    break;
+                }
+            }
+        }
+
+        function showPopup(message) {
+            document.getElementById('popup-message').innerText = message;
+            document.getElementById('popup').style.display = 'block';
+        }
+
+        function closePopup() {
+            document.getElementById('popup').style.display = 'none';
+        }
+
+        // ---------------------------
+        // (5) 점수 전송 버튼 함수
+        // ---------------------------
+        function sendScore() {
+            // "세 자리 나누기 몇 십"이라는 게임 이름, 입력된 이름, 점수, 경과 시간 전송
+            saveData("세 자리 나누기 몇 십", playerName, score, totalGameTime);
+        }
+    </script>
+</body>
+</html>
